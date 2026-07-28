@@ -1,0 +1,14 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# working/scratch material - not part of the submitted deliverable
+.claude/
+scripts/
+tests/
+docs/
+notes/
