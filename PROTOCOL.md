@@ -261,26 +261,3 @@ consumption view. Example: `/portal/meters/J100000/energy`.
   own API rather than leaking the portal's response) — confirmed via
   `GET /meters/DOES-NOT-EXIST/consumption`.
 
-### Bulk / export
-
-TODO — no "export" or "download" UI affordance noticed yet; unconfirmed
-whether one exists.
-
-## Open questions / next exploration steps
-
-- [x] Meter detail page request + response shape — `GET /meters/{id}/__data.json`,
-      devalue-encoded, see "Meter detail" section above.
-- [x] Transformers / hierarchy page request + response shape — both
-      `/portal/dts` (DT/feeder summary) and the fuller Zone→...→DT chain via
-      `__data.json`.
-- [x] Consumption data source — `/portal/meters/{id}/energy`, see below.
-- [x] Confirm whether `dtCode` values repeat across meters — **yes**: across
-      the full 403 meters there are only 40 unique `dtCode` values, each
-      shared by ~10 meters. The first page of 20 rows was misleading (looked
-      1:1 because the sample happened to be sequential/unique) — a real
-      many-meters-per-DT hierarchy exists. Still TODO: what sits above DT in
-      the hierarchy (feeder/substation), and where that mapping lives.
-- [ ] Bad-login response shape
-- [ ] Session-expiry behavior in practice (does an expired-cookie request to
-      `/portal/*` come back as 401, a redirect, or something else?)
-- [ ] Any pagination knobs the search endpoint does honor (sort order?)
