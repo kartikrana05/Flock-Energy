@@ -33,15 +33,22 @@ cookie sent back.
    decoder for.
 3. That same endpoint returns errors as HTTP `200` with the error embedded
    in the body, not as a 4xx status — easy to miss.
-4. The network hierarchy looked deceptively 1:1 on a small sample (first
+4. **Meter detail comes in two entirely different payload shapes**, and
+   which one you get depends on the meter: 238 of 403 return a display
+   table (`detail.data`), the other 165 return a raw ORM dump
+   (`detail.classData`) that is doubly encoded — a JSON *string* holding an
+   `installed_meter` object with PascalCase keys. Same six fields, wholly
+   different structure. The two are interleaved across the ID range with no
+   pattern we could find, so a small sample can easily miss one.
+5. The network hierarchy looked deceptively 1:1 on a small sample (first
    page of meters had unique, sequential DT codes) but isn't — 403 meters
    map to only 40 DTs, and 40 DTs map to only 28 feeders, with uneven
    fan-out at both levels.
-5. Consumption's numeric fields (`kwh`, `kvah`, `voltR`) are JSON strings,
+6. Consumption's numeric fields (`kwh`, `kvah`, `voltR`) are JSON strings,
    not numbers, and are cumulative register readings, not per-interval
    usage — "how much was consumed in this slot" requires computing a delta
    ourselves, which we chose not to do (see README's design notes).
-6. Consumption is always a fixed rolling 7-day window — no date-range
+7. Consumption is always a fixed rolling 7-day window — no date-range
    param, no "load more," confirmed by checking the exact first/last
    timestamps returned.
 
@@ -192,6 +199,58 @@ sitting in the array, same as any other string). Decoded example (`J100000`):
   — note `status` is a *sibling* of `error`, not nested inside it (easy to
   get wrong, we did on the first pass). Our API maps this to a real `404`
   rather than passing through the misleading `200`.
+
+#### Quirk: `detail` has two completely different shapes
+
+The decoded example above is only *one* of two payload shapes this endpoint
+serves, and the shape varies **per meter**. Across the full fleet of 403:
+
+| `detail` key | Meters | Format |
+|---|---|---|
+| `data` | 238 | Label/value display table — what the portal's own UI renders |
+| `classData` | 165 | Raw `installed_meter` row, PascalCase keys, **doubly encoded** |
+
+The second shape (e.g. `J100040`) looks like an ORM dump that leaked through
+whatever the first shape formats for display. Its value is a JSON *string*
+that must be parsed a second time after devalue decoding:
+
+```json
+{
+  "meterId": "J100040",
+  "detail": {
+    "classData": "{\"installed_meter\":{\"MeterId\":\"J100040\",\"SerialNo\":\"AL53485\",\"Make\":\"Secure\",\"PhaseType\":\"single\",\"InstallationStatus\":\"Installed\",\"InstallationType\":\"Whole Current\"}}"
+  },
+  "hierarchy": { "...": "identical in structure to the `data` shape" }
+}
+```
+
+- **Both shapes carry exactly the same six fields**, just renamed:
+  `MeterId`→`Meter ID`, `SerialNo`→`Serial No`, `Make`→`Make`,
+  `PhaseType`→`Phase Type`, `InstallationStatus`→`Installation Status`,
+  `InstallationType`→`Installation Type`. Verified across all 403 meters:
+  every `classData` payload has all six keys and the single
+  `installed_meter` wrapper — no third variant, no missing fields.
+- **The sibling `hierarchy` block is unaffected** — same keys, same
+  `"Name (CODE)"` strings, in both shapes. Only `detail` differs.
+- **Which meters get which shape looks arbitrary.** The two shapes are
+  interleaved throughout the ID range (of `J100000`–`J100019`, twelve are
+  `data` and eight are `classData`), and the ~41% `classData` share holds
+  steady across every attribute we sliced by — installation status, make,
+  phase type, installation type. So it can't be predicted from a meter's
+  own fields; the shape has to be branched on at decode time.
+- **How we missed it at first:** the decoder was written against `J100000`,
+  which happens to serve the `data` shape, and verified on a couple of
+  neighbouring meters that did too. Because the shapes are interleaved
+  rather than clustered, a small unlucky sample gives no hint that a second
+  shape exists — the other 165 meters then failed with `KeyError: 'data'`
+  → HTTP 500. The lesson is to sweep every ID when the dataset is small
+  enough to allow it (403 here), not to spot-check.
+- Our API branches on which key is present and maps both onto one
+  normalized `{display label: value}` dict before building the response
+  (`_normalize_detail` in `app/models/meters.py`), so `GET /meters/{id}`
+  returns an identical schema regardless of which shape the portal served.
+  An unrecognized third shape raises rather than silently returning partial
+  data.
 
 ### Network hierarchy — DT/feeder summary list
 
