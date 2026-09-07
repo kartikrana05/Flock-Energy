@@ -1,8 +1,36 @@
+import json
 import re
 
 from pydantic import BaseModel
 
 _LABEL_RE = re.compile(r"^(.*) \(([^)]+)\)$")
+
+# PascalCase ORM column -> the display label the `data` shape uses for the same field.
+_CLASS_DATA_LABELS = {
+    "MeterId": "Meter ID",
+    "SerialNo": "Serial No",
+    "Make": "Make",
+    "PhaseType": "Phase Type",
+    "InstallationStatus": "Installation Status",
+    "InstallationType": "Installation Type",
+}
+
+
+def _normalize_detail(detail: dict) -> dict:
+    """Flatten either meter-detail shape into one {display label: value} dict.
+
+    The portal serves detail two ways, split 238/165 across the fleet:
+    `data` is the label/value table its own UI renders, while `classData` is a
+    raw dump of the installed_meter row - PascalCase keys, and doubly encoded,
+    so the value is a JSON *string* that has to be parsed again. Both carry
+    the same six fields; see PROTOCOL.md.
+    """
+    if "data" in detail:
+        return {row["parameterName"]: row["parameterValue"] for row in detail["data"]}
+    if "classData" in detail:
+        inner = json.loads(detail["classData"])["installed_meter"]
+        return {label: inner[column] for column, label in _CLASS_DATA_LABELS.items()}
+    raise ValueError(f"unrecognized meter detail shape: {sorted(detail)}")
 
 
 class Meter(BaseModel):
@@ -61,7 +89,7 @@ class MeterDetail(BaseModel):
 
     @classmethod
     def from_page_data(cls, resolved: dict) -> "MeterDetail":
-        fields = {row["parameterName"]: row["parameterValue"] for row in resolved["detail"]["data"]}
+        fields = _normalize_detail(resolved["detail"])
         hierarchy = resolved["hierarchy"]
 
         return cls(

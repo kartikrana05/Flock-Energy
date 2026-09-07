@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     cache_ttl_seconds: int = 300
     cache_enabled: bool = True
 
+    auth_enabled: bool = True
     api_username: str = "admin"
     api_password: str = "changeme"
     jwt_secret_key: str = "dev-secret-change-me"

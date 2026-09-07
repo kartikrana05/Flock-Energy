@@ -8,6 +8,10 @@ from app.config import settings
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
+# Returned as the caller identity when AUTH_ENABLED=false, so downstream code
+# always has a subject to work with whether or not auth is switched on.
+ANONYMOUS_SUBJECT = "anonymous"
+
 
 def create_access_token(subject: str) -> str:
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_expire_minutes)
@@ -16,6 +20,9 @@ def create_access_token(subject: str) -> str:
 
 
 def require_auth(credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme)) -> str:
+    if not settings.auth_enabled:
+        return ANONYMOUS_SUBJECT
+
     if credentials is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="missing bearer token")
 

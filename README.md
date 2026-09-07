@@ -21,6 +21,7 @@ cp .env.example .env   # then edit if you want different credentials
 | `PORTAL_USERNAME` / `PORTAL_PASSWORD` | Login credentials for that portal — used internally by `PortalClient`, never exposed to callers of this API |
 | `CACHE_TTL_SECONDS` | How long the in-memory meter/DT/consumption caches are trusted before a refresh is triggered (default 300s) |
 | `CACHE_ENABLED` | Set to `false` to bypass caching entirely and hit the portal fresh on every request (useful for testing) |
+| `AUTH_ENABLED` | Set to `false` to switch this API's own JWT auth off entirely — every route becomes open and the four settings below are ignored. Handy for poking at endpoints with plain `curl`; don't ship it |
 | `API_USERNAME` / `API_PASSWORD` | Credentials for **this API's own** `POST /auth/login` — unrelated to the portal creds above |
 | `JWT_SECRET_KEY` | Signing secret for the JWTs this API issues. The default is a placeholder — change it for anything beyond local dev |
 | `JWT_EXPIRE_MINUTES` | How long an issued token stays valid (default 60) |
@@ -49,7 +50,9 @@ curl -X POST http://localhost:8000/auth/login \
 TOKEN=eyJhbGciOi...   # paste the token above
 ```
 
-Every example below assumes `$TOKEN` is set like this.
+Every example below assumes `$TOKEN` is set like this. To skip auth altogether
+during local exploration, set `AUTH_ENABLED=false` in `.env` and drop the
+`Authorization` header from every command below.
 
 ## Endpoints
 

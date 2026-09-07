@@ -1,0 +1,56 @@
+{
+  // Debug configs for the Urja Meter Ops API. Pick one from the Run and Debug
+  // panel (F5). Settings live in .vscode/settings.json (interpreter, test runner).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Default: breakpoints work everywhere, but no auto-reload on save.
+      "name": "API (uvicorn)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["app.main:app", "--host", "127.0.0.1", "--port", "8000"],
+      // app/config.py reads .env relative to the cwd, so this must be the repo root.
+      "cwd": "${workspaceFolder}",
+      "jinja": true,
+      "justMyCode": false,
+      "console": "integratedTerminal"
+    },
+    {
+      // --reload runs the app in a child process; subProcess:true is what lets
+      // the debugger follow it, otherwise breakpoints never bind.
+      "name": "API (uvicorn --reload)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["app.main:app", "--host", "127.0.0.1", "--port", "8000", "--reload"],
+      "cwd": "${workspaceFolder}",
+      "jinja": true,
+      "justMyCode": false,
+      "subProcess": true,
+      "console": "integratedTerminal"
+    },
+    {
+      // Attach to an already-running server started with:
+      //   .venv/bin/python -m debugpy --listen 5678 -m uvicorn app.main:app --port 8000
+      "name": "API (attach to :5678)",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": { "host": "127.0.0.1", "port": 5678 },
+      "pathMappings": [
+        { "localRoot": "${workspaceFolder}", "remoteRoot": "." }
+      ],
+      "justMyCode": false
+    },
+    {
+      // Run whatever file is open in the editor - handy for the app/portal/* scrapers.
+      "name": "Current file",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false,
+      "console": "integratedTerminal"
+    }
+  ]
+}
